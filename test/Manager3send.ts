@@ -25,6 +25,10 @@ async function deployFixture() {
 	const r1TokenAddress = await r1Token.getAddress();
 	const usdcTokenAddress = await usdcToken.getAddress();
 
+	const BurnerFactory = await ethers.getContractFactory("BurnContract");
+	const burner = await BurnerFactory.deploy(r1TokenAddress);
+	const burnerAddress = await burner.getAddress();
+
 	const PairFactory = await ethers.getContractFactory("UniswapMockPair");
 	const pair = await PairFactory.deploy(usdcTokenAddress, r1TokenAddress);
 	const pairAddress = await pair.getAddress();
@@ -60,6 +64,7 @@ async function deployFixture() {
 	);
 
 	await manager.waitForDeployment();
+	await manager.setR1Burner(burnerAddress);
 
 	const routerLiquidityR1 = 1_000_000n * 10n ** 18n;
 	const routerLiquidityUsdc = 1_000_000n * 10n ** 6n;
@@ -81,6 +86,7 @@ async function deployFixture() {
 		r1Token,
 		usdcToken,
 		paymentToken,
+		burnerAddress,
 		pair,
 		router,
 		weth,

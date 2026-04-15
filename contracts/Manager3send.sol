@@ -1,16 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IR1Token is IERC20 {
-    function burn(address from, uint256 amount) external;
+interface IR1Burner is IERC20 {
+    function burn(uint256 amount) external;
 }
 
 interface IUniswapV2Router {
@@ -67,12 +77,13 @@ contract Manager3send is
         Archive
     }
 
-    IR1Token public r1Token;
+    IERC20 public r1Token;
     IERC20 public usdcToken;
     IUniswapV2Pair public uniswapPair;
     IUniswapV2Router public uniswapRouter;
     address public weth;
     mapping(Tier => uint256) public tierPrices;
+    IR1Burner public r1Burner;
 
     event PaymentProcessed(
         address indexed sender,
@@ -123,7 +134,7 @@ contract Manager3send is
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
 
-        r1Token = IR1Token(r1Address);
+        r1Token = IERC20(r1Address);
         usdcToken = IERC20(usdcAddress);
         uniswapPair = IUniswapV2Pair(uniswapPairAddress);
         uniswapRouter = IUniswapV2Router(uniswapRouterAddress);
@@ -159,7 +170,7 @@ contract Manager3send is
             address(this),
             requiredR1
         );
-        r1Token.burn(address(this), requiredR1);
+        r1Burner.burn(requiredR1);
 
         emit PaymentProcessed(_msgSender(), tier, usdcAmount, requiredR1);
     }
@@ -173,15 +184,12 @@ contract Manager3send is
         require(minR1Amount > 0, "Manager3send: min output is zero");
 
         uint256 quotedR1 = _calculateR1Amount(usdcAmount);
-        require(
-            minR1Amount <= quotedR1,
-            "Manager3send: min output too high"
-        );
+        require(minR1Amount <= quotedR1, "Manager3send: min output too high");
 
         usdcToken.safeTransferFrom(_msgSender(), address(this), usdcAmount);
         uint256 r1Amount = _swapUSDCForR1(usdcAmount, minR1Amount);
 
-        r1Token.burn(address(this), r1Amount);
+        r1Burner.burn(r1Amount);
 
         emit PaymentProcessed(_msgSender(), tier, usdcAmount, r1Amount);
     }
@@ -195,16 +203,13 @@ contract Manager3send is
         require(minR1Amount > 0, "Manager3send: min output is zero");
 
         uint256 quotedR1 = _calculateR1Amount(usdcAmount);
-        require(
-            minR1Amount <= quotedR1,
-            "Manager3send: min output too high"
-        );
+        require(minR1Amount <= quotedR1, "Manager3send: min output too high");
 
         uint256 ethSpent = _swapETHForExactUSDC(usdcAmount);
         _refundExcessETH(ethSpent);
 
         uint256 r1Amount = _swapUSDCForR1(usdcAmount, minR1Amount);
-        r1Token.burn(address(this), r1Amount);
+        r1Burner.burn(r1Amount);
 
         emit PaymentProcessed(_msgSender(), tier, usdcAmount, r1Amount);
     }
@@ -260,7 +265,7 @@ contract Manager3send is
         }
 
         uint256 r1Amount = _swapUSDCForR1(usdcAmount, minR1Amount);
-        r1Token.burn(address(this), r1Amount);
+        r1Burner.burn(r1Amount);
 
         emit PaymentProcessed(_msgSender(), tier, usdcAmount, r1Amount);
     }
@@ -270,6 +275,11 @@ contract Manager3send is
         uint256 previousAmount = tierPrices[tier];
         _setTierPrice(tier, newAmount);
         emit TierPriceUpdated(tier, previousAmount, newAmount);
+    }
+
+    function setR1Burner(address burnerAddress) external onlyOwner {
+        require(burnerAddress != address(0), "Manager3send: burner is zero");
+        r1Burner = IR1Burner(burnerAddress);
     }
 
     function getRequiredR1Amount(Tier tier) external view returns (uint256) {
