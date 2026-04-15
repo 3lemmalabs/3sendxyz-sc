@@ -56,7 +56,7 @@ Copy `.env.example` to `.env` and fill network credentials when you are ready to
 ```bibtex
 @software{butusina2025_3sendxyz_smart_contract,
   author       = {Butusina, Petrica and Defranceschi, Alessandro},
-  title        = {{3sendxyz}: End-to-end encrypted, decentralized file transfer},
+  title        = {{3sendxyz SC}: End-to-end encrypted, decentralized file transfer Smart Contract},
   year         = {2025},
   url          = {https://github.com/3lemmalabs/3sendxyz-sc},
   organization = {3lemma Labs},
